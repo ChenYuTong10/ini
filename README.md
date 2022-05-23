@@ -18,6 +18,7 @@ The First way to parse ini file is calling `Load` API.
 
 ```Golang
 import (
+    "fmt"
     "log"
 
     "github.com/ChenYuTong10/ini"
@@ -32,6 +33,10 @@ func Example() {
     name := cfg.Section("person").Field("Name").String()
     age := cfg.Section("person").Field("Age").Int64()
     height := cfg.Section("person").Field("Height").Float64()
+    
+    fmt.Println("name:", name)
+    fmt.Println("age:", age)
+    fmt.Println("height:", height)
 }
 ```
 
@@ -39,6 +44,7 @@ What's more, you can use `struct tag` to bind the struct field with the configur
 
 ```Golang
 import (
+    "fmt"
     "log"
 
     "github.com/ChenYuTong10/ini"
@@ -68,6 +74,10 @@ func Example() {
     name := foo.Person.Name
     age := foo.Person.Age
     height := foo.Person.Height
+
+    fmt.Println("name:", name)
+    fmt.Println("age:", age)
+    fmt.Println("height:", height)
 }
 ```
 
