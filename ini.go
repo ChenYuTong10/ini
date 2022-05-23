@@ -126,7 +126,7 @@ var ErrBindPtr = errors.New("bind des needs to be a pointer")
 
 // Bind offers more easy way to get configuration. Bind also calls the
 // Load and bind value to the field according to the struct tag.
-func Bind(fPath string, des any) error {
+func Bind(fPath string, des interface{}) error {
 	cfg, err := Load(fPath)
 	if err != nil {
 		return err
