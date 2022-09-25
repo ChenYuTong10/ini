@@ -17,6 +17,8 @@ The First way to parse ini file is calling `Load` API.
 `Load` API will return a struct if it is called successfully and you can apply a series of method like chain to get the specific configuration value.
 
 ```Golang
+package example
+
 import (
     "fmt"
     "log"
@@ -43,6 +45,8 @@ func Example() {
 What's more, you can use `struct tag` to bind the struct field with the configuration in ini file. It can avoid getting configurations one by one.
 
 ```Golang
+package example
+
 import (
     "fmt"
     "log"
@@ -86,5 +90,5 @@ func Example() {
 ⬜ Not Start ⌛ Processing ✅ Finished
 
 - Two ways to parse the ini file ✅
-- Check for boundary case ⌛
-- Add other configuration file parser ⬜
+- Check for boundary case ✅
+- Test more cases ⬜

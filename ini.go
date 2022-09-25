@@ -2,7 +2,7 @@ package ini
 
 import (
 	"bufio"
-	"errors"
+	"fmt"
 	"os"
 	"reflect"
 	"strconv"
@@ -14,58 +14,49 @@ type Cfg struct {
 	sections map[string]*Section
 }
 
-// Load loads the configuration file according to fPath
+// Load loads the configuration file according to path
 // and returns a Cfg struct containing all the configuration.
-func Load(fPath string) (*Cfg, error) {
-	f, err := os.Open(fPath)
+func Load(path string) (*Cfg, error) {
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-
-	var section *Section
-
-	sections := make(map[string]*Section)
 
 	reader := bufio.NewScanner(f)
+	section := new(Section)
+	sections := make(map[string]*Section)
 	for reader.Scan() {
-
-		text := reader.Text()
-
-		text = strings.TrimSpace(text)
-
+		text := strings.TrimSpace(reader.Text())
 		// white line
 		if len(text) == 0 {
 			continue
 		}
-
 		// Comment
 		if text[0] == ';' || text[0] == '#' {
 			continue
 		}
-
 		// Section
 		if text[0] == '[' {
-			closeIdx := strings.LastIndexByte(text, ']')
-
-			name := text[1:closeIdx]
+			name := text[1:strings.LastIndexByte(text, ']')]
+			_, exist := sections[name]
+			if exist {
+				return nil, fmt.Errorf("duplicate section %s", name)
+			}
 			section = &Section{
 				name:   name,
 				fields: make(map[string]*Field),
 			}
 			sections[name] = section
-
 			continue
 		}
-
 		// Field
 		kv := strings.Split(text, "=")
-
 		section.fields[kv[0]] = &Field{
 			key:   kv[0],
 			value: kv[1],
 		}
 	}
+	_ = f.Close()
 
 	return &Cfg{sections}, nil
 }
@@ -73,8 +64,8 @@ func Load(fPath string) (*Cfg, error) {
 // Section gets the appointed section.
 // If the section is not exist, an empty Section will be returned instead of nil pointer.
 func (cfg *Cfg) Section(name string) *Section {
-	s, ok := cfg.sections[name]
-	if !ok {
+	s, exist := cfg.sections[name]
+	if !exist {
 		return &Section{}
 	}
 	return s
@@ -89,8 +80,8 @@ type Section struct {
 // Field will return a new empty struct instead of a nil pointer when the field name is not exist.
 // It is same as the Section.
 func (s *Section) Field(name string) *Field {
-	field, ok := s.fields[name]
-	if !ok {
+	field, exist := s.fields[name]
+	if !exist {
 		return &Field{}
 	}
 	return field
@@ -122,48 +113,43 @@ func (f *Field) Int64() int64 {
 	return des
 }
 
-var ErrBindPtr = errors.New("bind des needs to be a pointer")
-
 // Bind offers more easy way to get configuration. Bind also calls the
-// Load and bind value to the field according to the struct tag.
-func Bind(fPath string, des interface{}) error {
-	cfg, err := Load(fPath)
+// Load and bind value to the field according to the struct tag ini.
+func Bind(path string, des any) error {
+	t := reflect.TypeOf(des)
+	if t.Kind() != reflect.Ptr {
+		return fmt.Errorf("des needs to be a pointer, but gets %s", t.Kind().String())
+	}
+	t = t.Elem()
+
+	v := reflect.ValueOf(des).Elem()
+	if v.Kind() != reflect.Struct {
+		return fmt.Errorf("des needs to be a struct, but gets %s", v.Kind().String())
+	}
+
+	cfg, err := Load(path)
 	if err != nil {
 		return err
 	}
 
-	desType := reflect.TypeOf(des)
-	desValue := reflect.ValueOf(des)
+	for i := 0; i < t.NumField(); i++ {
+		ft := t.Field(i)
+		fv := v.Field(i)
+		section := cfg.Section(ft.Tag.Get("ini"))
+		for j := 0; j < fv.NumField(); j++ {
+			subFT := ft.Type.Field(j)
+			subFV := fv.Field(j)
+			field := section.Field(subFT.Tag.Get("ini"))
 
-	if desType.Kind() != reflect.Ptr {
-		return ErrBindPtr
-	}
-
-	for i := 0; i < desType.Elem().NumField(); i++ {
-
-		field1Name := desType.Elem().Field(i).Name
-
-		field1Type, _ := desType.Elem().FieldByName(field1Name)
-		field1Value := desValue.Elem().FieldByName(field1Name)
-
-		field1Tag := desType.Elem().Field(i).Tag.Get("ini")
-		section := cfg.Section(field1Tag)
-
-		for j := 0; j < field1Value.NumField(); j++ {
-
-			field2Type := field1Type.Type.Field(j)
-			field2Value := field1Value.Field(j)
-
-			field2Tag := field2Type.Tag.Get("ini")
-			fields := section.Field(field2Tag)
-
-			switch field2Value.Kind() {
-			case reflect.String:
-				field2Value.SetString(fields.String())
-			case reflect.Int64:
-				field2Value.SetInt(fields.Int64())
-			case reflect.Float64:
-				field2Value.SetFloat(fields.Float64())
+			if subFV.IsValid() && subFV.CanSet() {
+				switch subFV.Kind() {
+				case reflect.String:
+					subFV.SetString(field.String())
+				case reflect.Int64:
+					subFV.SetInt(field.Int64())
+				case reflect.Float64:
+					subFV.SetFloat(field.Float64())
+				}
 			}
 		}
 	}
