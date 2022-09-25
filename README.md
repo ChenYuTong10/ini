@@ -11,6 +11,12 @@ An INI file parser which supports multipart way to parse the configuration.
 - Chain-liked calling API to get the configuration
 - Using `struct tag` to bind specificly with struct field.
 
+## Install
+
+```Bash
+go get -u github.com/ChenYuTong10/ini
+```
+
 ## Example
 
 The First way to parse ini file is calling `Load` API.
